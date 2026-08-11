@@ -1,0 +1,29 @@
+# macOS
+.DS_Store
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# Xcode build output
+DerivedData/
+build/
+*.dSYM
+*.dSYM.zip
+*.ipa
+
+# Xcode user-specific settings
+xcuserdata/
+*.xcuserstate
+*.xccheckout
+*.xcscmblueprint
+*.moved-aside
+
+# Playgrounds
+timeline.xctimeline
+playground.xcworkspace
+
+# SwiftPM/Xcode dependency caches
+Packages/
+.package.resolved
+
