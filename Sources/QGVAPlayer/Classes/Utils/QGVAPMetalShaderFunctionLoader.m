@@ -58,7 +58,11 @@
     if (self.defaultLibrary || _alreadyLoadDefaultLibrary) {
         return ;
     }
+#if defined(SWIFT_PACKAGE) && defined(SWIFTPM_MODULE_BUNDLE)
+    NSBundle *bundle = SWIFTPM_MODULE_BUNDLE;
+#else
     NSBundle *bundle = [NSBundle bundleForClass:self.class];
+#endif
     NSString *metalLibPath = [bundle pathForResource:@"default" ofType:@"metallib"];
     if (metalLibPath.length == 0) {
         return ;
