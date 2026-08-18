@@ -83,7 +83,7 @@ The player intentionally does not include a network image loader. Implement the 
 
 ## Validation
 
-Simulator builds validate package integration and compilation. VAP playback uses hardware video decoding, so rendering and playback behavior must be verified on a physical iOS device.
+Simulator builds validate package integration and can preview VAP playback (VideoToolbox software decode + Metal). Prefer Apple Silicon and H.264 assets for simulator preview; HEVC may still fail on Intel simulators. Performance and visual fidelity should be verified on a physical iOS device.
 
 ## License
 

@@ -359,11 +359,6 @@ NSInteger const VapMaxCompatibleVersion = 2;
     //metalView
     [self hwd_loadMetalViewIfNeed:mode];
     
-    if ([[UIDevice currentDevice] hwd_isSimulator]) {
-        VAP_Error(kQGVAPModuleCommon, @"playHWDMP4 error! not allowed in Simulator!");
-        [self stopHWDMP4];
-        return ;
-    }
     if (!self.vap_renderQueue) {
         self.vap_renderQueue = dispatch_queue_create("com.qgame.vap.render", DISPATCH_QUEUE_SERIAL);
     }
@@ -747,7 +742,7 @@ HWDSYNTH_DYNAMIC_PROPERTY_CTYPE(vap_isMute, setVap_isMute, BOOL)
 }
 
 /**
- 利用GPU解码并播放mp4-h.264素材，在模拟器中会直接失败无法播放。
+ 利用GPU解码并播放mp4-h.264素材。模拟器上可预览（VideoToolbox 软解 + Metal），性能与效果以真机为准。
  
  @param filePath mp4s素材本地地址
  @param mode 确定素材中alpha通道数据位置，默认QGHWDTextureBlendMode_AlphaLeft

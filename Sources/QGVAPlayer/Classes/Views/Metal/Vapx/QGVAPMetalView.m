@@ -17,18 +17,6 @@
 #import "QGVAPMetalRenderer.h"
 #import "QGVAPLogger.h"
 
-#if TARGET_OS_SIMULATOR//模拟器
-
-@implementation QGVAPMetalView
-
-- (void)display:(CVPixelBufferRef)pixelBuffer mergeInfos:(NSArray<QGVAPMergedInfo *> *)infos {}
-
-- (void)dispose {}
-
-@end
-
-#else
-
 @interface QGVAPMetalView ()
 
 @property (nonatomic, strong) CAMetalLayer       *metalLayer;
@@ -128,5 +116,3 @@
 }
 
 @end
-
-#endif

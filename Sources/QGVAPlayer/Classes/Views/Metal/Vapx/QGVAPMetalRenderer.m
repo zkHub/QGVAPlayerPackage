@@ -22,9 +22,6 @@
 #import "QGVAPMetalUtil.h"
 #import "QGVAPMetalShaderFunctionLoader.h"
 
-#if TARGET_OS_SIMULATOR//模拟器
-#else
-
 @interface QGVAPMetalRenderer () {
     BOOL _renderingResourcesDisposed;      //用以标记渲染资源是否被回收
     matrix_float3x3 _currentColorConversionMatrix;
@@ -422,5 +419,3 @@
 }
 
 @end
-
-#endif

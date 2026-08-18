@@ -17,22 +17,6 @@
 #import "QGVAPLogger.h"
 #import "QGHWDMetalRenderer.h"
 
-#if TARGET_OS_SIMULATOR//模拟器
-
-@implementation QGHWDMetalView
-
-- (instancetype)initWithFrame:(CGRect)frame blendMode:(QGHWDTextureBlendMode)mode {
-    return [self initWithFrame:frame];
-}
-
-- (void)display:(CVPixelBufferRef)pixelBuffer {}
-
--(void)dispose {}
-
-@end
-
-#else
-
 @interface QGHWDMetalView ()
 
 @property (nonatomic, strong) CAMetalLayer          *metalLayer;
@@ -130,5 +114,3 @@
 }
 
 @end
-
-#endif

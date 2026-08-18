@@ -25,18 +25,17 @@
 #include <sys/sysctl.h>
 #import <AVFoundation/AVFoundation.h>
 
+static CVPixelBufferRef QGVAPMetalCompatiblePixelBuffer(CVPixelBufferRef source);
+
 @implementation UIDevice (HWD)
 
 - (BOOL)hwd_isSimulator {
-    static dispatch_once_t token;
-    static BOOL isSimulator = NO;
-    dispatch_once(&token, ^{
-        NSString *model = [self machineName];
-        if ([model isEqualToString:@"x86_64"] || [model isEqualToString:@"i386"]) {
-            isSimulator = YES;
-        }
-    });
-    return isSimulator;
+    // 使用编译宏，避免 Apple Silicon 模拟器 hw.machine=arm64 时漏判
+#if TARGET_OS_SIMULATOR
+    return YES;
+#else
+    return NO;
+#endif
 }
 
 - (NSString *)machineName {
@@ -318,9 +317,12 @@ NSString *const QGMP4HWDErrorDomain = @"QGMP4HWDErrorDomain";
     }
     
     QGMP4AnimatedImageFrame *newFrame = [[QGMP4AnimatedImageFrame alloc] init];
-    // imagebuffer会在frame回收时释放
-    CVPixelBufferRetain(pixelBuffer);
-    newFrame.pixelBuffer = pixelBuffer;
+    // imagebuffer会在frame回收时释放；拷贝出的 Metal 兼容 buffer 已由 Create 持有，勿再 Retain
+    CVPixelBufferRef renderBuffer = QGVAPMetalCompatiblePixelBuffer(pixelBuffer);
+    if (renderBuffer == pixelBuffer) {
+        CVPixelBufferRetain(renderBuffer);
+    }
+    newFrame.pixelBuffer = renderBuffer;
     newFrame.frameIndex = frameIndex; //dts顺序
     NSTimeInterval decodeTime = [[NSDate date] timeIntervalSinceDate:startDate]*1000;
     newFrame.decodeTime = decodeTime;
@@ -412,7 +414,12 @@ NSString *const QGMP4HWDErrorDomain = @"QGMP4HWDErrorDomain";
             }
         } else if (_mp4Parser.videoCodecID == QGMP4VideoStreamCodecIDH265) {
             if (@available(iOS 11.0, *)) {
-                if(VTIsHardwareDecodeSupported(kCMVideoCodecType_HEVC)) {
+                // 模拟器上 VTIsHardwareDecodeSupported 常返回 NO，但仍可能走 VideoToolbox 软解
+                BOOL hevcDecodable = YES;
+#if !TARGET_OS_SIMULATOR
+                hevcDecodable = VTIsHardwareDecodeSupported(kCMVideoCodecType_HEVC);
+#endif
+                if (hevcDecodable) {
                     const uint8_t* const parameterSetPointers[3] = {(const uint8_t*)[self.vpsData bytes], (const uint8_t*)[self.spsData bytes], (const uint8_t*)[self.ppsData bytes]};
                     const size_t parameterSetSizes[3] = {[self.vpsData length], [self.spsData length], [self.ppsData length]};
                     
@@ -443,24 +450,80 @@ NSString *const QGMP4HWDErrorDomain = @"QGMP4HWDErrorDomain";
     return [self createDecompressionSession];;
 }
 
+// 模拟器 VideoToolbox 软解出的 buffer 常无 IOSurface，CVMetalTextureCache 会返回 -6660。
+// 真机若已有 IOSurface 则直接复用；模拟器拷贝到 Metal 兼容的 NV12 buffer。
+static CVPixelBufferRef QGVAPMetalCompatiblePixelBuffer(CVPixelBufferRef source) {
+    if (!source) {
+        return source;
+    }
+#if !TARGET_OS_SIMULATOR
+    return source;
+#endif
+    size_t width = CVPixelBufferGetWidth(source);
+    size_t height = CVPixelBufferGetHeight(source);
+    OSType format = CVPixelBufferGetPixelFormatType(source);
+    NSDictionary *attrs = @{
+        (id)kCVPixelBufferMetalCompatibilityKey: @YES,
+        (id)kCVPixelBufferIOSurfacePropertiesKey: @{}
+    };
+    CVPixelBufferRef dest = NULL;
+    CVReturn status = CVPixelBufferCreate(kCFAllocatorDefault, width, height, format, (__bridge CFDictionaryRef)attrs, &dest);
+    if (status != kCVReturnSuccess || !dest) {
+        VAP_Error(kQGVAPModuleCommon, @"create metal-compatible pixelbuffer fail:%@", @(status));
+        return source;
+    }
+    CVPixelBufferLockBaseAddress(source, kCVPixelBufferLock_ReadOnly);
+    CVPixelBufferLockBaseAddress(dest, 0);
+    size_t planeCount = CVPixelBufferGetPlaneCount(source);
+    if (planeCount == 0) {
+        size_t bytesPerRow = MIN(CVPixelBufferGetBytesPerRow(source), CVPixelBufferGetBytesPerRow(dest));
+        size_t rows = CVPixelBufferGetHeight(source);
+        uint8_t *src = (uint8_t *)CVPixelBufferGetBaseAddress(source);
+        uint8_t *dst = (uint8_t *)CVPixelBufferGetBaseAddress(dest);
+        size_t srcBPR = CVPixelBufferGetBytesPerRow(source);
+        size_t dstBPR = CVPixelBufferGetBytesPerRow(dest);
+        for (size_t row = 0; row < rows; row++) {
+            memcpy(dst + row * dstBPR, src + row * srcBPR, bytesPerRow);
+        }
+    } else {
+        for (size_t plane = 0; plane < planeCount; plane++) {
+            uint8_t *src = (uint8_t *)CVPixelBufferGetBaseAddressOfPlane(source, plane);
+            uint8_t *dst = (uint8_t *)CVPixelBufferGetBaseAddressOfPlane(dest, plane);
+            size_t srcBPR = CVPixelBufferGetBytesPerRowOfPlane(source, plane);
+            size_t dstBPR = CVPixelBufferGetBytesPerRowOfPlane(dest, plane);
+            size_t rows = CVPixelBufferGetHeightOfPlane(source, plane);
+            size_t bytesPerRow = MIN(srcBPR, dstBPR);
+            for (size_t row = 0; row < rows; row++) {
+                memcpy(dst + row * dstBPR, src + row * srcBPR, bytesPerRow);
+            }
+        }
+    }
+    CVPixelBufferUnlockBaseAddress(dest, 0);
+    CVPixelBufferUnlockBaseAddress(source, kCVPixelBufferLock_ReadOnly);
+    NSDictionary *attachments = (__bridge_transfer NSDictionary *)CVBufferCopyAttachments(source, kCVAttachmentMode_ShouldPropagate);
+    [attachments enumerateKeysAndObjectsUsingBlock:^(id key, id obj, BOOL *stop) {
+        CVBufferSetAttachment(dest, (__bridge CFStringRef)key, (__bridge CFTypeRef)obj, kCVAttachmentMode_ShouldPropagate);
+    }];
+    return dest;
+}
+
 - (BOOL)createDecompressionSession {
-    CFDictionaryRef attrs = NULL;
-    const void *keys[] = {kCVPixelBufferPixelFormatTypeKey};
-    //      kCVPixelFormatType_420YpCbCr8Planar is YUV420
-    //      kCVPixelFormatType_420YpCbCr8BiPlanarFullRange is NV12
-    uint32_t v = kCVPixelFormatType_420YpCbCr8BiPlanarFullRange;
-    const void *values[] = { CFNumberCreate(NULL, kCFNumberSInt32Type, &v) };
-    attrs = CFDictionaryCreate(NULL, keys, values, 1, NULL, NULL);
+    // NV12，并声明 Metal/IOSurface 兼容，便于 CVMetalTextureCache 直接绑纹理（模拟器软解尤其需要）
+    NSDictionary *attrs = @{
+        (id)kCVPixelBufferPixelFormatTypeKey: @(kCVPixelFormatType_420YpCbCr8BiPlanarFullRange),
+        (id)kCVPixelBufferMetalCompatibilityKey: @YES,
+        (id)kCVPixelBufferIOSurfacePropertiesKey: @{}
+    };
+    CFDictionaryRef attrsRef = (__bridge CFDictionaryRef)attrs;
     
     if ([UIDevice currentDevice].systemVersion.floatValue >= 9.0) {
         _status = VTDecompressionSessionCreate(kCFAllocatorDefault,
                                                _mFormatDescription,
                                                NULL,
-                                               attrs,
+                                               attrsRef,
                                                NULL,
                                                &_mDecodeSession);
         if (_status != noErr) {
-            CFRelease(attrs);
             _constructErr = [NSError errorWithDomain:QGMP4HWDErrorDomain code:QGMP4HWDErrorCode_ErrorCreateVTBSession userInfo:[self errorUserInfo]];
             return NO;
         }
@@ -471,16 +534,14 @@ NSString *const QGMP4HWDErrorDomain = @"QGMP4HWDErrorDomain";
         
         _status = VTDecompressionSessionCreate(kCFAllocatorDefault,
                                                _mFormatDescription,
-                                               NULL, attrs,
+                                               NULL, attrsRef,
                                                &callBackRecord,
                                                &_mDecodeSession);
         if (_status != noErr) {
-            CFRelease(attrs);
             _constructErr = [NSError errorWithDomain:QGMP4HWDErrorDomain code:QGMP4HWDErrorCode_ErrorCreateVTBSession userInfo:[self errorUserInfo]];
             return NO;
         }
     }
-    CFRelease(attrs);
     return YES;
 }
 

@@ -26,19 +26,6 @@ extern matrix_float3x3 const kQGColorConversionMatrix709FullRangeDefault;
 extern matrix_float3x3 const kQGBlurWeightMatrixDefault;
 extern id<MTLDevice> kQGHWDMetalRendererDevice;
 
-#if TARGET_OS_SIMULATOR//模拟器
-
-@interface QGHWDMetalRenderer : NSObject
-
-@property (nonatomic, assign) QGHWDTextureBlendMode blendMode;
-
-- (instancetype)initWithMetalLayer:(id)layer blendMode:(QGHWDTextureBlendMode)mode;
-- (void)renderPixelBuffer:(CVPixelBufferRef)pixelBuffer metalLayer:(id)layer;
-- (void)dispose;
-
-@end
-#else
-
 @interface QGHWDMetalRenderer : NSObject
 
 @property (nonatomic, assign) QGHWDTextureBlendMode blendMode;
@@ -50,5 +37,3 @@ extern id<MTLDevice> kQGHWDMetalRendererDevice;
 - (void)dispose;
 
 @end
-
-#endif

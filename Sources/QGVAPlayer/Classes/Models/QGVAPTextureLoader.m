@@ -21,13 +21,6 @@
 
 @implementation QGVAPTextureLoader
 
-#if TARGET_OS_SIMULATOR//模拟器
-+ (id<MTLBuffer>)loadVapColorFillBufferWith:(UIColor *)color device:(id<MTLDevice>)device {return nil;}
-+ (id<MTLTexture>)loadTextureWithImage:(UIImage *)image device:(id<MTLDevice>)device {return nil;}
-+ (UIImage *)drawingImageForText:(NSString *)textStr color:(UIColor *)color size:(CGSize)size bold:(BOOL)bold {return nil;}
-+ (UIFont *)getAppropriateFontWith:(NSString *)text rect:(CGRect)fitFrame designedSize:(CGFloat)designedFontSize bold:(BOOL)isBold textSize:(CGSize *)textSize {return nil;}
-#else
-
 + (id<MTLBuffer>)loadVapColorFillBufferWith:(UIColor *)color device:(id<MTLDevice>)device {
     
     CGFloat red = 0.0, green = 0.0, blue = 0.0, alpha = 0.0;
@@ -177,7 +170,5 @@
     *textSize = stringSize;
     return designedFont;
 }
-
-#endif
 
 @end

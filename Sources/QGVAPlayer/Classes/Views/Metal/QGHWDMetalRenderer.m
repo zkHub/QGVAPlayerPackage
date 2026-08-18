@@ -97,9 +97,6 @@ static const float kQGQuadVerticesConstants[kQGQuadVerticesConstantsRow][kQGQuad
      1.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.5}
 };
 
-#if TARGET_OS_SIMULATOR//模拟器
-#else
-
 @interface QGHWDMetalRenderer () {
     BOOL _renderingResourcesDisposed;      //用以标记渲染资源是否被回收
     matrix_float3x3 _currentColorConversionMatrix;
@@ -318,4 +315,3 @@ static const float kQGQuadVerticesConstants[kQGQuadVerticesConstantsRow][kQGQuad
 }
 
 @end
-#endif
