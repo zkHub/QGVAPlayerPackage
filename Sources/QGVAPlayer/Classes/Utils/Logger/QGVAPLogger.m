@@ -15,6 +15,8 @@
 
 #import "QGVAPLogger.h"
 
+// 默认关闭，需显式调用 setEnabled:YES 后才会输出日志
+BOOL qgvap_logger_enabled = NO;
 QGVAPLoggerFunc external_VAP_Logger;
 
 @implementation QGVAPLogger
@@ -33,12 +35,23 @@ void internal_VAP_Logger_handler(VAPLogLevel level, const char* file, int line, 
 #endif
 }
 
++ (void)setEnabled:(BOOL)enabled {
+    qgvap_logger_enabled = enabled;
+}
+
++ (BOOL)isEnabled {
+    return qgvap_logger_enabled;
+}
+
 + (void)registerExternalLog:(QGVAPLoggerFunc)externalLog {
     external_VAP_Logger = externalLog;
 }
 
 + (void)log:(VAPLogLevel)level file:(NSString *)file line:(NSInteger)line func:(NSString *)func module:(NSString *)module message:(NSString *)message {
     
+    if (!qgvap_logger_enabled) {
+        return;
+    }
     if ([message containsString:@"%"]) {
         //此处是为了兼容%进入formmat之后的crash风险
         [message stringByReplacingOccurrencesOfString:@"%" withString:@""];

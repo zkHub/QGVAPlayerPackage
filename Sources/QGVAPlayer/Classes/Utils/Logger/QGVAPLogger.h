@@ -19,7 +19,17 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-#define VAP_Logger(level, module, format, ...) if(external_VAP_Logger)external_VAP_Logger(level, __FILE__, __LINE__, __FUNCTION__, module, format, ##__VA_ARGS__); else internal_VAP_Logger_handler(level, __FILE__, __LINE__, __FUNCTION__, module, format, ##__VA_ARGS__);
+// 日志开关默认关闭，仅在 qgvap_logger_enabled 为 YES 时真正输出
+#define VAP_Logger(level, module, format, ...) \
+    do { \
+        if (qgvap_logger_enabled) { \
+            if (external_VAP_Logger) { \
+                external_VAP_Logger(level, __FILE__, __LINE__, __FUNCTION__, module, format, ##__VA_ARGS__); \
+            } else { \
+                internal_VAP_Logger_handler(level, __FILE__, __LINE__, __FUNCTION__, module, format, ##__VA_ARGS__); \
+            } \
+        } \
+    } while (0)
 
 #define VAP_Error(module, format, ...)   VAP_Logger(VAPLogLevelError, module, format,  ##__VA_ARGS__)
 #define VAP_Event(module, format, ...)   VAP_Logger(VAPLogLevelEvent,  module, format,  ##__VA_ARGS__)
@@ -47,6 +57,7 @@ typedef void (*QGVAPLoggerFunc)(VAPLogLevel, const char*, int, const char*, NSSt
 extern "C" {
 #endif
     
+    extern BOOL qgvap_logger_enabled;
     extern QGVAPLoggerFunc external_VAP_Logger;
     void internal_VAP_Logger_handler(VAPLogLevel level, const char* file, int line, const char* func, NSString *module, NSString *format, ...);
     
@@ -55,6 +66,11 @@ extern "C" {
 #endif
 
 @interface QGVAPLogger : NSObject
+
+/// 打开或关闭日志，默认关闭
++ (void)setEnabled:(BOOL)enabled;
+/// 当前是否已打开日志
++ (BOOL)isEnabled;
 
 + (void)registerExternalLog:(QGVAPLoggerFunc)externalLog;
 

@@ -486,6 +486,10 @@ NSInteger const VapMaxCompatibleVersion = 2;
     [QGVAPLogger registerExternalLog:logger];
 }
 
++ (void)setHWDLogEnabled:(BOOL)enabled {
+    [QGVAPLogger setEnabled:enabled];
+}
+
 - (void)enableOldVersion:(BOOL)enable {
     self.vap_enableOldVersion = enable;
 }

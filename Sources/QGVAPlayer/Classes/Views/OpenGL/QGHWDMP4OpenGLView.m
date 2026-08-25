@@ -541,7 +541,7 @@ NSString *const kFragmentShaderSource = SHADER_STRING
     if (lengthOfLog > 0) {
         GLchar *log = (GLchar *)malloc(lengthOfLog);
         glGetShaderInfoLog(*shader, lengthOfLog, &lengthOfLog, log);
-        VAP_Info(kQGVAPModuleCommon, @"MODULE_DECODE Shader compile log:\n%s", log)
+        VAP_Info(kQGVAPModuleCommon, @"MODULE_DECODE Shader compile log:\n%s", log);
         free(log);
     }
 #endif
